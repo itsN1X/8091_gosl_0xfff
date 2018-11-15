@@ -357,16 +357,14 @@ func TestAssetModified(t *testing.T) {
 				coreQ = &core.Q{Session: session}
 			}
 
-			assetsModified := AssetsModified(make(map[string]xdr.Asset))
-			assetsModified.IngestOperation(
-				nil,
+			assetsStats := AssetStats{CoreQ: coreQ}
+			assetsStats.IngestOperation(
 				&xdr.Operation{
 					SourceAccount: &sourceAccount,
 					Body:          kase.opBody,
 				},
-				&sourceAccount,
-				coreQ)
-			assert.Equal(t, kase.wantAssets, extractKeys(assetsModified))
+				&sourceAccount)
+			assert.Equal(t, kase.wantAssets, extractKeys(assetsStats.toUpdate))
 		})
 	}
 }
@@ -387,17 +385,15 @@ func TestSourceAccountForAllowTrust(t *testing.T) {
 	})
 	wantAssets := []string{"credit_alphanum4/CAT/GCYLTPOU7IVYHHA3XKQF4YB4W4ZWHFERMOQ7K47IWANKNBFBNJJNEOG5"} // issued by anotherAccount
 
-	assetsModified := AssetsModified(make(map[string]xdr.Asset))
-	assetsModified.IngestOperation(
-		nil,
+	assetsStats := AssetStats{}
+	assetsStats.IngestOperation(
 		&xdr.Operation{
 			// this is the difference between this test and the table-driven case above
 			SourceAccount: nil,
 			Body:          opBody,
 		},
-		&sourceAccount,
-		nil)
-	assert.Equal(t, wantAssets, extractKeys(assetsModified))
+		&sourceAccount)
+	assert.Equal(t, wantAssets, extractKeys(assetsStats.toUpdate))
 }
 
 func makeAccount(secret string, code string) (xdr.AccountId, xdr.Asset) {
