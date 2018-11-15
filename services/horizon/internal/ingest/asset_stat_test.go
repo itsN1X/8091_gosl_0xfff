@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stellar/go/keypair"
-	"github.com/stellar/go/services/horizon/internal/db2/core"
 	"github.com/stellar/go/services/horizon/internal/test"
 	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/xdr"
@@ -119,10 +118,9 @@ func TestStatTrustlinesInfo(t *testing.T) {
 			defer tt.Finish()
 
 			session := &db.Session{DB: tt.CoreDB}
-			coreQ := &core.Q{Session: session}
 
 			for i, asset := range kase.assetState {
-				numAccounts, amount, err := statTrustlinesInfo(coreQ, asset.assetType, asset.assetCode, asset.assetIssuer)
+				numAccounts, amount, err := statTrustlinesInfo(session, asset.assetType, asset.assetCode, asset.assetIssuer)
 
 				tt.Require.NoError(err)
 				tt.Assert.Equal(asset.wantNumAccounts, numAccounts, fmt.Sprintf("asset index: %d", i))
@@ -163,9 +161,8 @@ func TestStatAccountInfo(t *testing.T) {
 			defer tt.Finish()
 
 			session := &db.Session{DB: tt.CoreDB}
-			coreQ := &core.Q{Session: session}
 
-			flags, toml, err := statAccountInfo(coreQ, kase.account)
+			flags, toml, err := statAccountInfo(session, kase.account)
 			tt.Require.NoError(err)
 			tt.Assert.Equal(kase.wantFlags, flags)
 			tt.Assert.Equal(kase.wantToml, toml)
@@ -349,15 +346,14 @@ func TestAssetModified(t *testing.T) {
 
 	for _, kase := range testCases {
 		t.Run(kase.opBody.Type.String(), func(t *testing.T) {
-			var coreQ *core.Q
+			var session *db.Session
 			if kase.needsCoreQ {
 				tt := test.Start(t).ScenarioWithoutHorizon("asset_stat_operations")
 				defer tt.Finish()
-				session := &db.Session{DB: tt.CoreDB}
-				coreQ = &core.Q{Session: session}
+				session = &db.Session{DB: tt.CoreDB}
 			}
 
-			assetsStats := AssetStats{CoreQ: coreQ}
+			assetsStats := AssetStats{CoreSession: session}
 			assetsStats.IngestOperation(
 				&xdr.Operation{
 					SourceAccount: &sourceAccount,

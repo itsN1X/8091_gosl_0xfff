@@ -9,7 +9,6 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/stellar/go/services/horizon/internal/db2/core"
-	"github.com/stellar/go/services/horizon/internal/db2/history"
 	"github.com/stellar/go/support/db"
 	ilog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -145,8 +144,8 @@ type BatchInsertBuilder struct {
 
 // AssetStats tracks and updates all the assets modified during a cycle of ingestion.
 type AssetStats struct {
-	CoreQ    *core.Q
-	HistoryQ *history.Q
+	CoreSession    *db.Session
+	HistorySession *db.Session
 
 	batchInsertBuilder *BatchInsertBuilder
 	toUpdate           map[string]xdr.Asset
@@ -238,8 +237,8 @@ func NewSession(i *System) *Session {
 		SkipCursorUpdate: i.SkipCursorUpdate,
 		Metrics:          &i.Metrics,
 		AssetStats: &AssetStats{
-			CoreQ:    &core.Q{Session: cdb},
-			HistoryQ: &history.Q{Session: hdb},
+			CoreSession:    cdb,
+			HistorySession: hdb,
 		},
 	}
 }

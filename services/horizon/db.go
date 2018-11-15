@@ -10,8 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/stellar/go/services/horizon/internal/db2/core"
-	"github.com/stellar/go/services/horizon/internal/db2/history"
 	"github.com/stellar/go/services/horizon/internal/db2/schema"
 	"github.com/stellar/go/services/horizon/internal/ingest"
 	"github.com/stellar/go/support/db"
@@ -66,8 +64,8 @@ var dbInitAssetStatsCmd = &cobra.Command{
 		}
 
 		assetStats := ingest.AssetStats{
-			CoreQ:    &core.Q{Session: cdb},
-			HistoryQ: &history.Q{Session: hdb},
+			CoreSession:    cdb,
+			HistorySession: hdb,
 		}
 
 		log.Println("Getting assets from core DB...")

@@ -46,7 +46,8 @@ func (assetStats *AssetStats) AddAllAssetsFromCore() (int, error) {
 	assetStats.initOnce.Do(assetStats.init)
 
 	var assets []xdr.Asset
-	err := assetStats.CoreQ.AllAssets(&assets)
+	coreQ := &core.Q{Session: assetStats.CoreSession}
+	err := coreQ.AllAssets(&assets)
 	if err != nil {
 		return 0, errors.Wrap(err, "Error getting all assets")
 	}
@@ -125,7 +126,7 @@ func (assetStats *AssetStats) UpdateAssetStats() error {
 
 	if hasValue {
 		// perform a delete first since upsert is not supported if postgres < 9.5
-		err := errors.Wrap(assetStats.deleteRows(assetStats.HistoryQ.Session), "Error deleting asset_stats row")
+		err := errors.Wrap(assetStats.deleteRows(assetStats.HistorySession), "Error deleting asset_stats row")
 		if err != nil {
 			return err
 		}
@@ -133,7 +134,7 @@ func (assetStats *AssetStats) UpdateAssetStats() error {
 		// can perform a direct upsert if postgres > 9.4
 		// is.Ingestion.assetStats = is.Ingestion.assetStats.
 		// 	Suffix("ON CONFLICT (id) DO UPDATE SET (amount, num_accounts, flags, toml) = (excluded.amount, excluded.num_accounts, excluded.flags, excluded.toml)")
-		return errors.Wrap(assetStats.batchInsertBuilder.Exec(assetStats.HistoryQ.Session), "Error inserting asset_stats row")
+		return errors.Wrap(assetStats.batchInsertBuilder.Exec(assetStats.HistorySession), "Error inserting asset_stats row")
 	}
 
 	return nil
@@ -163,7 +164,9 @@ func (assetStats *AssetStats) deleteRows(session *db.Session) error {
 	for _, asset := range assetStats.toUpdate {
 		assets = append(assets, asset)
 	}
-	ids, err := assetStats.HistoryQ.GetAssetIDs(assets)
+
+	historyQ := history.Q{Session: assetStats.HistorySession}
+	ids, err := historyQ.GetAssetIDs(assets)
 	if err != nil {
 		return err
 	}
@@ -194,7 +197,8 @@ func (assetStats *AssetStats) computeAssetStat(asset *xdr.Asset) (*history.Asset
 		return nil, nil
 	}
 
-	assetID, err := assetStats.HistoryQ.GetCreateAssetID(*asset)
+	historyQ := &history.Q{Session: assetStats.HistorySession}
+	assetID, err := historyQ.GetCreateAssetID(*asset)
 	if err != nil {
 		return nil, errors.Wrap(err, "historyQ.GetCreateAssetID error")
 	}
@@ -206,12 +210,12 @@ func (assetStats *AssetStats) computeAssetStat(asset *xdr.Asset) (*history.Asset
 		return nil, errors.Wrap(err, "asset.Extract error")
 	}
 
-	numAccounts, amount, err := statTrustlinesInfo(assetStats.CoreQ, assetType, assetCode, assetIssuer)
+	numAccounts, amount, err := statTrustlinesInfo(assetStats.CoreSession, assetType, assetCode, assetIssuer)
 	if err != nil {
 		return nil, errors.Wrap(err, "statTrustlinesInfo error")
 	}
 
-	flags, toml, err := statAccountInfo(assetStats.CoreQ, assetIssuer)
+	flags, toml, err := statAccountInfo(assetStats.CoreSession, assetIssuer)
 	if err != nil {
 		return nil, errors.Wrap(err, "statAccountInfo error")
 	}
@@ -226,14 +230,16 @@ func (assetStats *AssetStats) computeAssetStat(asset *xdr.Asset) (*history.Asset
 }
 
 // statTrustlinesInfo fetches all the stats from the trustlines table
-func statTrustlinesInfo(coreQ *core.Q, assetType xdr.AssetType, assetCode string, assetIssuer string) (int32, string, error) {
+func statTrustlinesInfo(coreSession *db.Session, assetType xdr.AssetType, assetCode string, assetIssuer string) (int32, string, error) {
+	coreQ := &core.Q{Session: coreSession}
 	return coreQ.BalancesForAsset(int32(assetType), assetCode, assetIssuer)
 }
 
 // statAccountInfo fetches all the stats from the accounts table
-func statAccountInfo(coreQ *core.Q, accountID string) (int8, string, error) {
+func statAccountInfo(coreSession *db.Session, accountID string) (int8, string, error) {
 	var account core.Account
 	// We don't need liabilities data here so let's use the old V9 query
+	coreQ := &core.Q{Session: coreSession}
 	err := coreQ.AccountByAddress(&account, accountID, 9)
 	if err != nil {
 		return -1, "", errors.Wrap(err, "coreQ.AccountByAddress error")
